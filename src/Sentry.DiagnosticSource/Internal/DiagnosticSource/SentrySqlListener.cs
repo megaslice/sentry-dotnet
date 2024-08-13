@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Sentry.Extensibility;
 using Sentry.Internal.Extensions;
 
@@ -207,6 +208,21 @@ internal class SentrySqlListener : IObserver<KeyValuePair<string, object?>>
         }
 
         commandSpan.Description = value.GetStringProperty("Command.CommandText", _options.DiagnosticLogger);
+
+        if (value.GetProperty("Command", _options.DiagnosticLogger) is DbCommand command)
+        {
+            foreach (DbParameter parameter in command.Parameters)
+            {
+                commandSpan.SetTag(parameter.ParameterName,
+                    parameter.Value switch
+                    {
+                        null => "NULL",
+                        string s => $"'{s.Replace("'", "''")}'",
+                        _ => parameter.Value.ToString() ?? "",
+                    });
+            }
+        }
+
         commandSpan.Finish(spanStatus);
     }
 
